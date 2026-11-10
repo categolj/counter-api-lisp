@@ -1,0 +1,3 @@
+*.wasm
+keyvalue.db*
+.private/
