@@ -13,13 +13,13 @@
 (defpackage #:counter-api (:use #:cl) (:export #:route #:handle))
 (in-package #:counter-api)
 
-(rontolisp:wit-import "wit/keyvalue.wit"
+(rontolisp:wit-import "wit/keyvalue"
                       :interface "wasi:keyvalue/store@0.2.0-draft2"
                       :package kv)
-(rontolisp:wit-import "wit/keyvalue.wit"
+(rontolisp:wit-import "wit/keyvalue"
                       :interface "wasi:keyvalue/atomics@0.2.0-draft2"
                       :package kva)
-(rontolisp:wit-import "wit/keyvalue.wit"
+(rontolisp:wit-import "wit/keyvalue"
                       :interface "wasi:keyvalue/batch@0.2.0-draft2"
                       :package kvb)
 
@@ -79,10 +79,6 @@ on stdout."
 (defun count-of (value)
   "The count VALUE holds, or nil."
   (and value (handler-case (parse-integer value) (error () nil))))
-
-(defmacro with-bucket ((bucket) &body body)
-  `(let ((,bucket (kv:open "")))
-     (unwind-protect (progn ,@body) (kv:bucket-drop ,bucket))))
 
 (defun fetch (bucket keys)
   "KEYS with their values in one call, (key value) each, the value nil for a key gone meanwhile."
@@ -183,12 +179,14 @@ on stdout."
                          (respond 200
                           (rontolisp:plist-hash-table (list :status "UP"))))
                         ((and (eq method :post) (string= path "/counter"))
-                         (with-bucket (bucket)
+                         (kv:with-bucket (bucket (kv:open ""))
                            (post-counter bucket (getf env :query-string) body)))
                         ((and (eq method :get) (string= path "/counter"))
-                         (with-bucket (bucket) (get-counters bucket)))
+                         (kv:with-bucket (bucket (kv:open ""))
+                           (get-counters bucket)))
                         ((and (eq method :post) (string= path "/import"))
-                         (with-bucket (bucket) (post-import bucket body)))
+                         (kv:with-bucket (bucket (kv:open ""))
+                           (post-import bucket body)))
                         (t (list 404 nil)))
       (rontolisp:wit-error (e)
         (log-event "error" "keyvalue-failed" "failure" (princ-to-string e)

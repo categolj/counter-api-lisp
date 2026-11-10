@@ -36,11 +36,13 @@ make                       # counter-api.wasm, with rontolisp on the PATH
 make RONTOLISP='java -jar rontolisp-0.1.0-SNAPSHOT-exec.jar'
 make test                  # the unit tests: rove on the interpreter, over an in-memory store
 make e2e                   # test/e2e.sh: the component on a wicket
+make wit                   # wit/keyvalue/ downloaded again
 ```
 
-The component takes a rontolisp passing a `list<T>` argument to an imported function (`develop`
-since [2db646c](https://github.com/making/rontolisp/commit/2db646c17367cde969e4cc5e2627c0f71c0f1295));
-the unit tests run on an older one too.
+`wit/keyvalue/` is [WebAssembly/wasi-keyvalue](https://github.com/WebAssembly/wasi-keyvalue)'s
+`wit/` as published, at the commit the Makefile pins (`WASI_KEYVALUE`), and `wit-import` reads it as
+a package directory: the component and the unit tests take a rontolisp of `develop` since
+[cd8d82b](https://github.com/making/rontolisp/commit/cd8d82b0bb0dca85d12aea6d6eebfdf0589d69c7).
 
 `make test` needs no host: on the interpreter the keyvalue calls go to
 [`test/memory-keyvalue.lisp`](test/memory-keyvalue.lisp). `make e2e` runs a

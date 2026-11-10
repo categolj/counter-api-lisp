@@ -22,8 +22,8 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v7
-    # develop's snapshot, a native build: the component needs a rontolisp passing a list<T>
-    # argument to an imported function (README, Build and test)
+    # develop's snapshot, a native build: the sources take a rontolisp of develop (README, Build
+    # and test)
     - name: Install rontolisp
       run: |
         curl -sSfL -o "${RUNNER_TEMP}/rontolisp" https://github.com/making/rontolisp/releases/download/0.1.0-SNAPSHOT/rontolisp-linux-amd64
