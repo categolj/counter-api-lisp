@@ -53,7 +53,7 @@ in a temporary directory, or over the store `counter` of the `keyvalue:` section
 ```yaml
 keyvalue:
   stores:
-    grid:
+    gemfire:
       type: gemfire
       locators: [grpcs://192.0.2.20:50051, grpcs://192.0.2.30:50051, grpcs://192.0.2.40:50051]
       region: counter
@@ -67,7 +67,7 @@ routes:
     sandbox:
       wasi: [keyvalue]
       keyvalue:
-        "": grid/counter     # without it the namespace is the host
+        "": gemfire/counter  # without it the namespace is the host
 ```
 
 The region is created once (the store creates none):
