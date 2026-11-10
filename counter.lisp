@@ -19,6 +19,8 @@
                       :interface "wasi:keyvalue/store@0.2.0-draft2" :package kv)
 (rontolisp:wit-import "wit/keyvalue.wit"
                       :interface "wasi:keyvalue/atomics@0.2.0-draft2" :package kva)
+(rontolisp:wit-import "wit/keyvalue.wit"
+                      :interface "wasi:keyvalue/batch@0.2.0-draft2" :package kvb)
 
 ;;; --- JSON and logging ---------------------------------------------------------------------
 
@@ -83,13 +85,13 @@
        (kv:bucket-drop ,bucket))))
 
 (defun fetch (bucket keys)
-  "KEYS with their values, (key value) each, the value nil for a key gone meanwhile."
-  (mapcar (lambda (key) (list key (kv:bucket-get bucket key))) keys))
+  "KEYS with their values in one call, (key value) each, the value nil for a key gone meanwhile."
+  (and keys (kvb:get-many bucket keys)))
 
 (defun store-all (bucket pairs)
-  "Writes PAIRS, (key value) each: not atomic, a failure may leave the ones before it."
-  (dolist (pair pairs)
-    (kv:bucket-set bucket (first pair) (second pair))))
+  "Writes PAIRS, (key value) each, in one call: not atomic, a failure may leave some written."
+  (when pairs
+    (kvb:set-many bucket pairs)))
 
 (defun counters (bucket)
   "Every counter, (entry-id . count), by count descending, then by entry id."

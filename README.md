@@ -25,7 +25,9 @@ import each write an ECS line on stdout, a failure one on stderr.
 A counter is the key `"<entryId>"` holding the count's decimal digits, what wasi:keyvalue's
 `increment` reads and writes, so an increment is atomic in the store (a compare-and-swap on GemFire).
 The component opens the bucket `""`; the route maps it to a store and a namespace. The listing reads
-every key of the namespace, a page of keys at a time.
+the namespace a page of keys at a time, each page's values in one call (wasi:keyvalue's `get-many`).
+An import writes its counters in one call (`set-many`), not atomically: a store failing on the way
+may leave some written.
 
 ## Build and test
 
@@ -35,6 +37,10 @@ make RONTOLISP='java -jar rontolisp-0.1.0-SNAPSHOT-exec.jar'
 make test                  # the unit tests: rove on the interpreter, over an in-memory store
 make e2e                   # test/e2e.sh: the component on a wicket
 ```
+
+The component takes a rontolisp passing a `list<T>` argument to an imported function (`develop`
+since [2db646c](https://github.com/making/rontolisp/commit/2db646c17367cde969e4cc5e2627c0f71c0f1295));
+the unit tests run on an older one too.
 
 `make test` needs no host: on the interpreter the keyvalue calls go to
 [`test/memory-keyvalue.lisp`](test/memory-keyvalue.lisp). `make e2e` runs a
