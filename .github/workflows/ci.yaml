@@ -1,0 +1,91 @@
+# The unit tests, counter-api.wasm and test/e2e.sh on a sluice wasi wicket; on main, the component
+# published as a wasm OCI artifact, as wkg oci push makes one (a config of
+# application/vnd.wasm.config.v0+json, the component one layer of application/wasm):
+# ghcr.io/<repository>:<sha> and :latest.
+name: CI
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+  workflow_dispatch:
+# main's runs one at a time, so latest is the newest revision that passed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+    # develop's snapshot, a native build: the component needs a rontolisp passing a list<T>
+    # argument to an imported function (README, Build and test)
+    - name: Install rontolisp
+      run: |
+        curl -sSfL -o "${RUNNER_TEMP}/rontolisp" https://github.com/making/rontolisp/releases/download/0.1.0-SNAPSHOT/rontolisp-linux-amd64
+        sudo install -m 0755 "${RUNNER_TEMP}/rontolisp" /usr/local/bin/rontolisp
+        rontolisp --version
+    - name: Unit tests
+      run: make test
+    - name: Build
+      run: make
+    # the binary of sluice's latest image, for test/e2e.sh
+    - name: Install the wicket
+      run: |
+        docker create --name wicket ghcr.io/making/sluice/sluice-wicket-runtime-wasi:latest
+        docker cp wicket:/usr/local/bin/sluice-wicket-runtime-wasi "${RUNNER_TEMP}/"
+        docker rm wicket
+        sudo install -m 0755 "${RUNNER_TEMP}/sluice-wicket-runtime-wasi" /usr/local/bin/
+        sluice-wicket-runtime-wasi --version
+    - name: E2E
+      run: make e2e
+    - name: Upload the component
+      uses: actions/upload-artifact@v7
+      with:
+        path: counter-api.wasm
+        archive: false
+        if-no-files-found: error
+  push:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    env:
+      REGISTRY: ghcr.io
+      REPOSITORY: ${{ github.repository }}
+    steps:
+    # the component build tested
+    - name: Download the component
+      uses: actions/download-artifact@v8
+      with:
+        name: counter-api.wasm
+    - name: Install wkg
+      run: |
+        curl -sSfL -o "${RUNNER_TEMP}/wkg" https://github.com/bytecodealliance/wasm-pkg-tools/releases/download/v0.16.1/wkg-x86_64-unknown-linux-gnu
+        echo "235ecf455e11b8b146e00f24f24c95b573cfe6a432f332358463b229311cec57  ${RUNNER_TEMP}/wkg" | sha256sum -c -
+        sudo install -m 0755 "${RUNNER_TEMP}/wkg" /usr/local/bin/wkg
+    - name: Push the component
+      env:
+        WKG_OCI_USERNAME: ${{ github.actor }}
+        WKG_OCI_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        wkg oci push \
+          --annotation "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+          --annotation "org.opencontainers.image.revision=${GITHUB_SHA}" \
+          --annotation "org.opencontainers.image.description=counter-api, a wasi:http 0.3 component compiled by rontolisp" \
+          "${REGISTRY}/${REPOSITORY}:${GITHUB_SHA}" counter-api.wasm
+        # latest: the revision's manifest under a second tag (a second push would make another
+        # one, its config holding the push time)
+        TOKEN=$(curl -sSf -u "${WKG_OCI_USERNAME}:${WKG_OCI_PASSWORD}" "https://${REGISTRY}/token?service=${REGISTRY}&scope=repository:${REPOSITORY}:pull,push" | jq -r .token)
+        curl -sSf -H "Authorization: Bearer ${TOKEN}" -H "Accept: application/vnd.oci.image.manifest.v1+json" \
+          -o "${RUNNER_TEMP}/manifest.json" "https://${REGISTRY}/v2/${REPOSITORY}/manifests/${GITHUB_SHA}"
+        curl -sSf -X PUT -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/vnd.oci.image.manifest.v1+json" \
+          --data-binary "@${RUNNER_TEMP}/manifest.json" "https://${REGISTRY}/v2/${REPOSITORY}/manifests/latest"
+        echo "pushed ${REGISTRY}/${REPOSITORY}:${GITHUB_SHA} and :latest" | tee -a "${GITHUB_STEP_SUMMARY}"

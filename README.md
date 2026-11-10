@@ -48,6 +48,14 @@ the unit tests run on an older one too.
 in a temporary directory, or over the store `counter` of the `keyvalue:` section a file names
 (`STORE=store.yaml make e2e`, in a namespace of its own, purged at the end).
 
+CI builds the component with rontolisp's develop snapshot and runs the unit tests and the E2E (on
+the wicket of sluice's latest image); each push to `main` that passes publishes the component as a
+wasm OCI artifact (`wkg oci push`): `ghcr.io/categolj/counter-api-lisp` (`latest` / `<sha>`).
+
+```bash
+wkg oci pull ghcr.io/categolj/counter-api-lisp -o counter-api.wasm
+```
+
 ## Run on a wicket
 
 ```yaml
