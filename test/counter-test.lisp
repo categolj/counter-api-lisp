@@ -143,7 +143,7 @@
              (call :post "/import"
                    :body (json "[{'entryId':1,'counter':2}]")))))
       (ok
-       (cl-ppcre:scan "^\\{\"@timestamp\":\"\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ\",\"log.level\":\"info\""
+       (cl-ppcre:scan "^\\{\"@timestamp\":\"\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d\\.\\d{3}Z\",\"log.level\":\"info\""
                       out))
       (ok
        (search (json

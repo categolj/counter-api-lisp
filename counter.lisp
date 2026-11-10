@@ -37,11 +37,17 @@
   "TEXT's JSON value, or :invalid."
   (handler-case (rontolisp:json-parse text) (error () :invalid)))
 
+(defconstant +unix-epoch+
+  (encode-universal-time 0 0 0 1 1 1970 0)
+  "1970-01-01T00:00:00Z as a universal time: where rontolisp:unix-time counts from.")
+
 (defun timestamp ()
-  (multiple-value-bind (second minute hour day month year)
-      (decode-universal-time (get-universal-time) 0)
-    (format nil "~4,'0d-~2,'0d-~2,'0dT~2,'0d:~2,'0d:~2,'0dZ" year month day hour
-            minute second)))
+  "The wall clock in UTC, to the millisecond."
+  (multiple-value-bind (seconds nanoseconds) (rontolisp:unix-time)
+    (multiple-value-bind (second minute hour day month year)
+        (decode-universal-time (+ seconds +unix-epoch+) 0)
+      (format nil "~4,'0d-~2,'0d-~2,'0dT~2,'0d:~2,'0d:~2,'0d.~3,'0dZ" year month
+              day hour minute second (floor nanoseconds 1000000)))))
 
 (defun log-event (level action outcome message &rest fields)
   "One ECS line, FIELDS (name value ...) after the event's own: on stderr from a warning up, else

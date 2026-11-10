@@ -87,8 +87,8 @@ expect '250 more imported' "$(call POST /import "[${items%,}]")" '200 {"imported
 listing=$(call GET /counter)
 expect '252 listed, 3 pages of keys' "$(printf '%s' "$listing" | grep -o '"entryId"' | wc -l | tr -d ' ')" 252
 expect 'the largest first' "${listing%%,\{\"entryId\":1248*}" '200 [{"entryId":1249,"counter":250}'
-expect 'the increments logged' \
-  "$(grep -c '"event.action":"counter-incremented"' "$dir/wicket.log" || true)" 4
+expect 'the increments logged, to the millisecond' \
+  "$(grep -cE '"@timestamp":"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z".*"event.action":"counter-incremented"' "$dir/wicket.log" || true)" 4
 
 if [ -n "${STORE:-}" ]; then
   stop
