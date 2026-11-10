@@ -24,18 +24,12 @@
 
 ;;; --- JSON and logging ---------------------------------------------------------------------
 
-(defun object (&rest pairs)
-  "A JSON object of PAIRS (name value ...), its members in that order."
-  (let ((object (make-hash-table :test 'equal)))
-    (loop while pairs do (setf (gethash (pop pairs) object) (pop pairs)))
-    object))
-
 (defun respond (status value)
   (list status '(:content-type "application/json")
         (list (rontolisp:json-stringify value))))
 
 (defun fail (status message)
-  (respond status (object "status" status "error" message)))
+  (respond status (rontolisp:plist-hash-table (list :status status :error message))))
 
 (defun parse-json (text)
   "TEXT's JSON value, or :invalid."
@@ -48,15 +42,18 @@
     (format nil "~4,'0d-~2,'0d-~2,'0dT~2,'0d:~2,'0d:~2,'0dZ" year month day hour minute second)))
 
 (defun log-event (level action outcome message &rest fields)
-  "One ECS line: on stderr from a warning up, else on stdout."
-  (let ((event (object "@timestamp" (timestamp) "log.level" level "ecs.version" "8.11.0"
-                       "service.name" "counter-api" "event.kind" "event"
-                       "event.action" action "event.outcome" outcome "message" message))
-        (stream (if (member level '("warn" "error") :test #'string=)
+  "One ECS line, FIELDS (name value ...) after the event's own: on stderr from a warning up, else
+on stdout."
+  (let ((stream (if (member level '("warn" "error") :test #'string=)
                     *error-output*
                     *standard-output*)))
-    (loop while fields do (setf (gethash (pop fields) event) (pop fields)))
-    (write-line (rontolisp:json-stringify event) stream)
+    (write-line (rontolisp:json-stringify
+                 (rontolisp:plist-hash-table
+                  (list* :@timestamp (timestamp) :log.level level :ecs.version "8.11.0"
+                         :service.name "counter-api" :event.kind "event"
+                         :event.action action :event.outcome outcome :message message
+                         fields)))
+                stream)
     (finish-output stream)))
 
 ;;; --- counters -----------------------------------------------------------------------------
@@ -125,17 +122,19 @@
            (fail 400 "entryId is required and must be an integer"))
           ((read-only-p query)
            (let ((count (count-of (kv:bucket-get bucket (key-of (gethash "entryId" payload))))))
-             (respond 200 (object "counter" (or count 0)))))
+             (respond 200 (rontolisp:plist-hash-table (list :counter (or count 0))))))
           (t
            (let* ((entry-id (gethash "entryId" payload))
                   (count (kva:increment bucket (key-of entry-id) 1)))
              (log-event "info" "counter-incremented" "success" "incremented counter for entryId"
-                        "counter.entry_id" entry-id "counter.value" count)
-             (respond 200 (object "counter" count)))))))
+                        :counter.entry_id entry-id :counter.value count)
+             (respond 200 (rontolisp:plist-hash-table (list :counter count))))))))
 
 (defun get-counters (bucket)
   (respond 200 (map 'vector
-                    (lambda (counter) (object "entryId" (car counter) "counter" (cdr counter)))
+                    (lambda (counter)
+                      (rontolisp:plist-hash-table
+                       (list "entryId" (car counter) "counter" (cdr counter))))
                     (counters bucket))))
 
 (defun import-problem (items)
@@ -162,8 +161,8 @@
                                          (princ-to-string (gethash "counter" item))))
                                  payload))
           (log-event "info" "counters-imported" "success" "imported counters via /import"
-                     "counter.imported" (length payload))
-          (respond 200 (object "imported" (length payload)))))))
+                     :counter.imported (length payload))
+          (respond 200 (rontolisp:plist-hash-table (list :imported (length payload))))))))
 
 (defun route (env body)
   "The response to the request ENV (a Clack environment) with BODY, the request's body."
@@ -171,7 +170,7 @@
         (path (getf env :path-info)))
     (handler-case
         (cond ((and (eq method :get) (string= path "/actuator/health"))
-               (respond 200 (object "status" "UP")))
+               (respond 200 (rontolisp:plist-hash-table (list :status "UP"))))
               ((and (eq method :post) (string= path "/counter"))
                (with-bucket (bucket) (post-counter bucket (getf env :query-string) body)))
               ((and (eq method :get) (string= path "/counter"))
@@ -181,7 +180,7 @@
               (t (list 404 nil)))
       (rontolisp:wit-error (e)
         (log-event "error" "keyvalue-failed" "failure" (princ-to-string e)
-                   "http.request.method" (symbol-name method) "url.path" path)
+                   :http.request.method (symbol-name method) :url.path path)
         (fail 500 "Internal Server Error")))))
 
 (rontolisp:async-defun handle (env)
