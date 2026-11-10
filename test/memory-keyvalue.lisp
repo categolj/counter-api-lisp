@@ -5,14 +5,13 @@
 ;;;; holds. While *keyvalue-down* is true, every call but open and drop answers the error arm, as
 ;;;; a store gone does.
 
-(defvar *keyvalue* (make-hash-table :test #'equal)
+(defvar *keyvalue*
+  (make-hash-table :test #'equal)
   "The namespace's pairs, the values strings.")
 
-(defvar *keyvalue-down* nil
-  "True: the store is gone.")
+(defvar *keyvalue-down* nil "True: the store is gone.")
 
-(defvar *keyvalue-handles* 0
-  "The last bucket handle handed out.")
+(defvar *keyvalue-handles* 0 "The last bucket handle handed out.")
 
 (defun keyvalue-reset ()
   "An empty store, up."
@@ -27,8 +26,7 @@
   (let ((keys '()))
     (maphash (lambda (key value)
                (declare (ignore value))
-               (when (or (null cursor) (string> key cursor))
-                 (push key keys)))
+               (when (or (null cursor) (string> key cursor)) (push key keys)))
              *keyvalue*)
     (setf keys (sort keys #'string<))
     (if (> (length keys) 100)
@@ -38,46 +36,55 @@
 
 (defun keyvalue-increment (key delta)
   (let* ((value (gethash key *keyvalue*))
-         (sum (+ delta (if value
-                           (handler-case (parse-integer value)
-                             (error ()
-                               (keyvalue-fail
-                                (format nil "the value of '~a' is not a decimal i64" key))))
-                           0))))
+         (sum
+          (+ delta
+             (if value
+                 (handler-case (parse-integer value)
+                   (error ()
+                     (keyvalue-fail
+                      (format nil "the value of '~a' is not a decimal i64"
+                              key))))
+                 0))))
     (setf (gethash key *keyvalue*) (princ-to-string sum))
     sum))
 
 (defun memory-keyvalue (member &rest args)
   "The provider: MEMBER names the bound function, ARGS are its arguments (the bucket first)."
-  (cond ((string= member "open")
-         (if (string= (first args) "")
-             (incf *keyvalue-handles*)
-             (error 'rontolisp:wit-error :payload :no-such-store :message (first args))))
-        ((string= member "bucket-drop") nil)
-        (*keyvalue-down* (keyvalue-fail "the store is down"))
-        ((string= member "bucket-get") (values (gethash (second args) *keyvalue*)))
-        ((string= member "bucket-set")
-         (setf (gethash (second args) *keyvalue*) (third args))
-         nil)
-        ((string= member "bucket-delete")
-         (remhash (second args) *keyvalue*)
-         nil)
-        ((string= member "bucket-exists") (nth-value 1 (gethash (second args) *keyvalue*)))
-        ((string= member "bucket-list-keys") (keyvalue-page (second args)))
-        ((string= member "increment") (keyvalue-increment (second args) (third args)))
-        ((string= member "get-many")
-         (mapcar (lambda (key) (list key (values (gethash key *keyvalue*)))) (second args)))
-        ((string= member "set-many")
-         (dolist (pair (second args))
-           (setf (gethash (first pair) *keyvalue*) (second pair)))
-         nil)
-        ((string= member "delete-many")
-         (dolist (key (second args))
-           (remhash key *keyvalue*))
-         nil)
-        (t (keyvalue-fail (format nil "memory-keyvalue: no member ~a" member)))))
+  (cond
+   ((string= member "open")
+    (if (string= (first args) "")
+        (incf *keyvalue-handles*)
+        (error 'rontolisp:wit-error
+               :payload :no-such-store
+               :message (first args))))
+   ((string= member "bucket-drop") nil)
+   (*keyvalue-down* (keyvalue-fail "the store is down"))
+   ((string= member "bucket-get") (values (gethash (second args) *keyvalue*)))
+   ((string= member "bucket-set")
+    (setf (gethash (second args) *keyvalue*) (third args))
+    nil)
+   ((string= member "bucket-delete")
+    (remhash (second args) *keyvalue*)
+    nil)
+   ((string= member "bucket-exists")
+    (nth-value 1 (gethash (second args) *keyvalue*)))
+   ((string= member "bucket-list-keys") (keyvalue-page (second args)))
+   ((string= member "increment")
+    (keyvalue-increment (second args) (third args)))
+   ((string= member "get-many")
+    (mapcar (lambda (key) (list key (values (gethash key *keyvalue*))))
+            (second args)))
+   ((string= member "set-many")
+    (dolist (pair (second args))
+      (setf (gethash (first pair) *keyvalue*) (second pair)))
+    nil)
+   ((string= member "delete-many")
+    (dolist (key (second args)) (remhash key *keyvalue*))
+    nil)
+   (t (keyvalue-fail (format nil "memory-keyvalue: no member ~a" member)))))
 
-(dolist (interface '("wasi:keyvalue/store@0.2.0-draft2"
-                     "wasi:keyvalue/atomics@0.2.0-draft2"
-                     "wasi:keyvalue/batch@0.2.0-draft2"))
+(dolist (interface
+         '("wasi:keyvalue/store@0.2.0-draft2"
+           "wasi:keyvalue/atomics@0.2.0-draft2"
+           "wasi:keyvalue/batch@0.2.0-draft2"))
   (rontolisp:wit-provide interface #'memory-keyvalue))
