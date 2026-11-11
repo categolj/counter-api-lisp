@@ -4,11 +4,10 @@ counter-api (a count per blog entry id) as a wasi:http 0.3 component compiled by
 [rontolisp](https://github.com/making/rontolisp), the counters in `wasi:keyvalue@0.2.0-draft2`. It
 runs on a [sluice](https://github.com/making/sluice) wasi wicket (`sluice-wicket-runtime-wasi`),
 deployed with `cf push` through sluice's cf-api, the store a Tanzu GemFire region (sluice's
-`gemfire` keyvalue store). It replaces counter-api-cpp (C++ on GemFire's native client) and keeps
-its HTTP contract and log lines; the blog frontend (blog-frontend-htmx) calls `POST /counter` and
-`POST /counter?readOnly=true`, and shows "—" when counter-api cannot be reached. `GET /counter` and
-`POST /import` are for moving the counters between deployments. README.md has the API, storage
-and run details.
+`gemfire` keyvalue store). The blog frontend (blog-frontend-htmx) calls `POST /counter` and
+`POST /counter?readOnly=true`, and shows "—" when counter-api cannot be reached; `GET /counter`
+and `POST /import` are for moving the counters between deployments. README.md has the API,
+storage and run details.
 
 ## Layout
 
@@ -33,7 +32,7 @@ release). Run `rontolisp format counter.lisp counter-api.lisp test/` before comm
 
 - Logging: one ECS JSON line per event (`log-event`), stdout below warn, stderr from warn. Only an
   increment, an import and a keyvalue failure log; reads and health checks do not (the cf-api's
-  access log covers them). Keep the field names counter-api-cpp writes.
+  access log covers them).
 - A counter is the key `"<entryId>"` holding decimal digits, in the bucket `""`; the route maps
   the bucket to a store and namespace. Increments go through `wasi:keyvalue/atomics`.
 - Commit and push to `main` directly. CI runs are heavy on rontolisp's side too: do not re-run
