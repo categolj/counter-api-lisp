@@ -32,7 +32,7 @@ may leave some written.
 ## Build and test
 
 ```bash
-make                       # counter-api.wasm, with rontolisp on the PATH
+make                       # target/counter-api.wasm, with rontolisp on the PATH
 make RONTOLISP='java -jar rontolisp-0.1.0-SNAPSHOT-exec.jar'
 make test                  # the unit tests: rove on the interpreter, over an in-memory store
 make e2e                   # test/e2e.sh: the component on a wicket

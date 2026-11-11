@@ -1,3 +1,4 @@
 *.wasm
+/target/
 keyvalue.db*
 .private/

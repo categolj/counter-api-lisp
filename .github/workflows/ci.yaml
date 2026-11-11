@@ -46,7 +46,7 @@ jobs:
     - name: Upload the component
       uses: actions/upload-artifact@v7
       with:
-        path: counter-api.wasm
+        path: target/counter-api.wasm
         archive: false
         if-no-files-found: error
   push:
@@ -66,6 +66,7 @@ jobs:
       uses: actions/download-artifact@v8
       with:
         name: counter-api.wasm
+        path: target
     - name: Install wkg
       run: |
         curl -sSfL -o "${RUNNER_TEMP}/wkg" https://github.com/bytecodealliance/wasm-pkg-tools/releases/download/v0.16.1/wkg-x86_64-unknown-linux-gnu
@@ -80,7 +81,7 @@ jobs:
           --annotation "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
           --annotation "org.opencontainers.image.revision=${GITHUB_SHA}" \
           --annotation "org.opencontainers.image.description=counter-api, a wasi:http 0.3 component compiled by rontolisp" \
-          "${REGISTRY}/${REPOSITORY}:${GITHUB_SHA}" counter-api.wasm
+          "${REGISTRY}/${REPOSITORY}:${GITHUB_SHA}" target/counter-api.wasm
         # latest: the revision's manifest under a second tag (a second push would make another
         # one, its config holding the push time)
         TOKEN=$(curl -sSf -u "${WKG_OCI_USERNAME}:${WKG_OCI_PASSWORD}" "https://${REGISTRY}/token?service=${REGISTRY}&scope=repository:${REPOSITORY}:pull,push" | jq -r .token)

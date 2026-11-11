@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# What the unit tests cannot check: counter-api.wasm on a sluice wasi wicket (local mode), over a
+# What the unit tests cannot check: target/counter-api.wasm on a sluice wasi wicket (local mode), over a
 # store of the wicket's. Counting, listing over pages of keys, an import round trip, the log
 # reaching the wicket; the contract's details are counter-test.lisp's.
 #
@@ -39,7 +39,7 @@ serve() {
   cat <<EOF
 routes:
   - host: counter.test
-    component: $PWD/counter-api.wasm
+    component: $PWD/target/counter-api.wasm
     sandbox:
       wasi: [keyvalue]
 EOF

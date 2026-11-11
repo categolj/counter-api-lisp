@@ -1,4 +1,4 @@
-# counter-api.wasm, a wasi:http 0.3 component, compiled by rontolisp:
+# target/counter-api.wasm, a wasi:http 0.3 component, compiled by rontolisp:
 #   make                                                  # rontolisp on the PATH
 #   make RONTOLISP='java -jar rontolisp-0.1.0-SNAPSHOT-exec.jar'
 #   make test                                             # the unit tests (rove, the interpreter)
@@ -8,14 +8,19 @@ RONTOLISP ?= rontolisp
 # wit/keyvalue/: WebAssembly/wasi-keyvalue's wit/ as published at this commit
 WASI_KEYVALUE = aa972c86e4294b97908b8d24d5950cc525ace7a6
 
-counter-api.wasm: counter-api.lisp counter.lisp $(wildcard wit/keyvalue/*.wit)
+TARGET = target/counter-api.wasm
+
+all: $(TARGET)
+
+$(TARGET): counter-api.lisp counter.lisp $(wildcard wit/keyvalue/*.wit)
+	mkdir -p $(dir $@)
 	$(RONTOLISP) counter-api.lisp -o $@ --component --optimize
 
-.PHONY: test e2e wit clean
+.PHONY: all test e2e wit clean
 test:
 	$(RONTOLISP) test test/counter-test.lisp
 
-e2e: counter-api.wasm
+e2e: $(TARGET)
 	test/e2e.sh
 
 wit:
@@ -24,4 +29,4 @@ wit:
 	  | tar -xz -C wit/keyvalue --strip-components=2 wasi-keyvalue-$(WASI_KEYVALUE)/wit
 
 clean:
-	rm -f counter-api.wasm
+	rm -rf target
